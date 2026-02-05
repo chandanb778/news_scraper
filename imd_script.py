@@ -19,52 +19,36 @@ db = None
 
 # --- Configuration ---
 FEED_URL = "https://sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml"
-SERVICE_ACCOUNT_FILE = 'serviceAccountKey.json'  # replace with your file
-COLLECTION_NAME = 'disaster_alerts'
-USER_AGENT = 'ResQMap-NDMA-RSS/1.0 (youremail@domain.com)'
 
-# Initialize Firebase automatically if service account or env vars are present
-# Priority: SERVICE_ACCOUNT_FILE path -> GOOGLE_APPLICATION_CREDENTIALS -> env-based service account fields
-sa_path = os.getenv("SERVICE_ACCOUNT_FILE", SERVICE_ACCOUNT_FILE)
-if sa_path and os.path.exists(sa_path):
+# =========================
+# Firebase Initialization (GitHub Actions)
+# =========================
+db = None
+service_account_json = os.getenv("SERVICE_ACCOUNT_JSON")
+
+if service_account_json:
     try:
-        cred = credentials.Certificate(sa_path)
+        cred_dict = json.loads(service_account_json)
+        cred = credentials.Certificate(cred_dict)
         firebase_admin.initialize_app(cred)
         db = firestore.client()
-        print(f"Initialized Firestore using service account file: {sa_path}")
+        print("✅ Firestore initialized via GitHub Actions secret")
     except Exception as e:
-        print("Failed to initialize Firestore with service account file:", e)
+        print("❌ Firestore init failed:", e)
 else:
-    gac = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if gac and os.path.exists(gac):
-        try:
-            firebase_admin.initialize_app()
-            db = firestore.client()
-            print(f"Initialized Firestore via GOOGLE_APPLICATION_CREDENTIALS: {gac}")
-        except Exception as e:
-            print("Failed to initialize Firestore via GOOGLE_APPLICATION_CREDENTIALS:", e)
-    else:
-        # try env-based service account (private key etc.)
-        fb_proj = os.getenv("FIREBASE_PROJECT_ID")
-        fb_client = os.getenv("FIREBASE_CLIENT_EMAIL")
-        fb_key = os.getenv("FIREBASE_PRIVATE_KEY")
-        if fb_proj and fb_client and fb_key:
-            try:
-                cred_dict = {
-                    "type": "service_account",
-                    "project_id": fb_proj,
-                    "private_key": fb_key.replace("\\n", "\n"),
-                    "client_email": fb_client,
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                }
-                cred = credentials.Certificate(cred_dict)
-                firebase_admin.initialize_app(cred)
-                db = firestore.client()
-                print("Initialized Firestore using env-based service account variables.")
-            except Exception as e:
-                print("Failed to initialize Firestore from env vars:", e)
-        else:
-            print("Firestore not initialized; set SERVICE_ACCOUNT_FILE or GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_* env vars to enable writes.")
+    print("❌ SERVICE_ACCOUNT_JSON not found. Firestore disabled.")
+
+
+
+# Clear existing data first
+# if db:
+#     col_ref = db.collection(COLLECTION_NAME)
+#     docs = col_ref.stream()
+#     for doc in docs:
+#         doc.reference.delete()
+#     print("Old disaster_alerts collection cleared")
+
+
 
 # Fetch the RSS feed (with ETag caching if desired)
 try:
@@ -212,6 +196,10 @@ print(json.dumps(alerts, ensure_ascii=False, indent=2))
 with open('alerts_output.json', 'w', encoding='utf-8') as f:
     json.dump(alerts, f, ensure_ascii=False, indent=2)
 
+
+
+
+
 # (Optional) Push to Firestore if initialized
 if db:
     for alert in alerts:
@@ -223,9 +211,3 @@ else:
     print("Firestore client not initialized; skipping push. To enable, set SERVICE_ACCOUNT_FILE and initialize firebase_admin.")
 
 
-if db:
-    col_ref = db.collection(COLLECTION_NAME)
-    # Fetch all docs in the collection and delete them one by one:
-    docs = col_ref.stream()
-    for doc in docs:
-        doc.reference.delete()
