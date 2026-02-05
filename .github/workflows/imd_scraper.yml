@@ -2,7 +2,7 @@ name: IMD Disaster Alert Scraper
 
 on:
   schedule:
-    - cron: "0 */4 * * *"   # every 4 hours
+    - cron: "*/10 * * * *"   # every 10 minutes
   workflow_dispatch:       # allows manual run from GitHub UI
 
 jobs:
