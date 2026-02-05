@@ -19,7 +19,8 @@ db = None
 
 # --- Configuration ---
 FEED_URL = "https://sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml"
-
+COLLECTION_NAME = 'disaster_alerts_2'
+USER_AGENT = 'ResQMap-NDMA-RSS/1.0 (youremail@domain.com)'
 # =========================
 # Firebase Initialization (GitHub Actions)
 # =========================
